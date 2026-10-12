@@ -1,0 +1,64 @@
+name: Build Songbook APK
+
+on:
+workflow_dispatch:
+push:
+branches: [master, main]
+
+permissions:
+contents: read
+
+jobs:
+build:
+runs-on: ubuntu-latest
+
+steps:
+  - name: Get source code
+    uses: actions/checkout@v4
+
+  - name: Set up Java 21
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '21'
+
+  - name: Set up Android SDK
+    uses: android-actions/setup-android@v3
+
+  - name: Install Android components
+    run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+  - name: Configure Firebase for build
+    run: |
+      cat > app/google-services.json <<'EOF'
+      {
+        "project_info": {
+          "project_number": "123456789012",
+          "project_id": "songbook-local-build",
+          "storage_bucket": "songbook-local-build.appspot.com"
+        },
+        "client": [{
+          "client_info": {
+            "mobilesdk_app_id": "1:123456789012:android:1234567890123456",
+            "android_client_info": {
+              "package_name": "igrek.songbook"
+            }
+          },
+          "api_key": [{
+            "current_key": "placeholder-build-key"
+          }]
+        }],
+        "configuration_version": "1"
+      }
+      EOF
+
+  - name: Build APK
+    run: bash ./gradlew assembleDebug
+
+  - name: Save APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: songbook-apk
+      path: app/build/outputs/apk/debug/*.apk
+      if-no-files-found: error
+      retention-days: 7
